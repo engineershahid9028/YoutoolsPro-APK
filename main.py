@@ -4,8 +4,6 @@ from telegram import Update
 
 from bot import telegram_app
 from db import init_db
-from db_service import get_user_by_telegram_id, is_premium_user
-from tools_engine import keyword_generator, seo_analyzer
 
 app = FastAPI()
 
@@ -30,7 +28,7 @@ async def webhook(req: Request):
     return {"ok": True}
 
 
-# ---------- Android API ----------
+# ---------- Android API (safe stub) ----------
 
 class LoginRequest(BaseModel):
     telegram_id: int
@@ -47,31 +45,23 @@ def home():
 
 @app.post("/api/login")
 def api_login(req: LoginRequest):
-    user = get_user_by_telegram_id(req.telegram_id)
-
-    if not user:
-        return {"error": "User not found"}
-
+    # temporary stub until db_service is wired
     return {
-        "user_id": user.id,
-        "telegram_id": user.telegram_id,
-        "is_premium": user.is_premium
+        "telegram_id": req.telegram_id,
+        "is_premium": False
     }
 
 
 @app.get("/api/status/{telegram_id}")
 def api_status(telegram_id: int):
-    premium = is_premium_user(telegram_id)
-    return {"is_premium": premium}
+    return {"is_premium": False}
 
 
 @app.post("/api/keyword")
 def api_keyword(req: ToolRequest):
-    result = keyword_generator(req.text)
-    return {"result": result}
+    return {"result": f"Keyword result for: {req.text}"}
 
 
 @app.post("/api/seo")
 def api_seo(req: ToolRequest):
-    result = seo_analyzer(req.text)
-    return {"result": result}
+    return {"result": f"SEO result for: {req.text}"}
