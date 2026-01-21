@@ -87,12 +87,20 @@ class PaymentRequest(BaseModel):
 # API ROUTES
 # =========================
 
+from db_service import get_or_create_user, is_premium
+
+ADMIN_ID = 7575476523   # your admin id
+
 @app.post("/api/login")
 def api_login(req: LoginRequest):
+    user = get_or_create_user(req.telegram_id)
+
     return {
         "telegram_id": req.telegram_id,
-        "is_premium": False
+        "is_premium": is_premium(req.telegram_id),
+        "is_admin": req.telegram_id == ADMIN_ID
     }
+
 
 
 @app.get("/api/status/{telegram_id}")
