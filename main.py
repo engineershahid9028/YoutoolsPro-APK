@@ -9,6 +9,15 @@ from bot import telegram_app
 from db import init_db
 from binance_verify import verify_usdt_payment
 from db_service import set_premium, log_payment
+from db_service import (
+    get_stats,
+    get_all_users,
+    set_premium,
+    revoke_premium,
+    ban_user,
+    unban_user,
+    get_all_payments
+)
 
 
 # =========================
@@ -117,6 +126,84 @@ def api_keyword(req: ToolRequest):
 def api_seo(req: ToolRequest):
     return {"result": f"SEO result for: {req.text}"}
 
+ADMIN_ID = 7575476523
+
+
+@app.get("/api/admin/stats/{telegram_id}")
+def admin_stats(telegram_id: int):
+    if telegram_id != ADMIN_ID:
+        return {"error": "Unauthorized"}
+
+    users, premium, wallets, total_requests = get_stats()
+
+    return {
+        "users": users,
+        "premium": premium,
+        "wallets": wallets,
+        "requests": total_requests
+    }
+
+
+@app.get("/api/admin/users/{telegram_id}")
+def admin_users(telegram_id: int):
+    if telegram_id != ADMIN_ID:
+        return {"error": "Unauthorized"}
+
+    users = get_all_users()
+    return [{"id": u.telegram_id, "premium": u.is_premium, "wallet": u.wallet} for u in users]
+
+
+@app.get("/api/admin/payments/{telegram_id}")
+def admin_payments(telegram_id: int):
+    if telegram_id != ADMIN_ID:
+        return {"error": "Unauthorized"}
+
+    payments = get_all_payments()
+    return [
+        {"user": p.user_id, "amount": p.amount, "status": p.status, "txid": p.txid}
+        for p in payments
+    ]
+
+
+class AdminAction(BaseModel):
+    admin_id: int
+    user_id: int
+
+
+@app.post("/api/admin/grant")
+def admin_grant(req: AdminAction):
+    if req.admin_id != ADMIN_ID:
+        return {"error": "Unauthorized"}
+
+    set_premium(req.user_id)
+    return {"status": "premium_granted"}
+
+
+@app.post("/api/admin/revoke")
+def admin_revoke(req: AdminAction):
+    if req.admin_id != ADMIN_ID:
+        return {"error": "Unauthorized"}
+
+    revoke_premium(req.user_id)
+    return {"status": "premium_revoked"}
+
+
+@app.post("/api/admin/ban")
+def admin_ban(req: AdminAction):
+    if req.admin_id != ADMIN_ID:
+        return {"error": "Unauthorized"}
+
+    ban_user(req.user_id)
+    return {"status": "banned"}
+
+
+@app.post("/api/admin/unban")
+def admin_unban(req: AdminAction):
+    if req.admin_id != ADMIN_ID:
+        return {"error": "Unauthorized"}
+
+    unban_user(req.user_id)
+    return {"status": "unbanned"}
 
 # =========================
 # PAYMENT API
