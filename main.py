@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
@@ -7,10 +8,30 @@ from telegram import Update
 from bot import telegram_app
 from db import init_db
 
+
+# =========================
+# APP INIT
+# =========================
+
 app = FastAPI()
 
 
-# ---------- Startup ----------
+# =========================
+# ENABLE CORS (for React / Web / Mobile)
+# =========================
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],   # Allow all frontends (React, Android, etc.)
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+# =========================
+# STARTUP
+# =========================
 
 @app.on_event("startup")
 async def startup():
@@ -20,7 +41,9 @@ async def startup():
     print("✅ Telegram bot initialized")
 
 
-# ---------- Serve Web Dashboard ----------
+# =========================
+# SERVE WEB DASHBOARD
+# =========================
 
 app.mount("/dashboard", StaticFiles(directory="dashboard"), name="dashboard")
 
@@ -29,7 +52,9 @@ def home():
     return FileResponse("dashboard/index.html")
 
 
-# ---------- Telegram Webhook ----------
+# =========================
+# TELEGRAM WEBHOOK
+# =========================
 
 @app.post("/webhook")
 async def webhook(req: Request):
@@ -39,17 +64,25 @@ async def webhook(req: Request):
     return {"ok": True}
 
 
-# ---------- Android API ----------
+# =========================
+# API MODELS
+# =========================
 
 class LoginRequest(BaseModel):
     telegram_id: int
+
 
 class ToolRequest(BaseModel):
     text: str
 
 
+# =========================
+# ANDROID / WEB API
+# =========================
+
 @app.post("/api/login")
 def api_login(req: LoginRequest):
+    # You can later connect this to real DB login
     return {
         "telegram_id": req.telegram_id,
         "is_premium": False
