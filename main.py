@@ -234,36 +234,3 @@ def api_payment(req: PaymentRequest):
 # =========================
 # ONE-TIME USER MIGRATION
 # =========================
-
-@app.get("/admin/create-id-sequence")
-def create_id_sequence():
-    db = SessionLocal()
-
-    db.execute(text("""
-        CREATE SEQUENCE IF NOT EXISTS users_id_seq;
-    """))
-
-    db.commit()
-    db.close()
-
-    return {"status": "sequence_ready"}
-# =========================
-# ONE-TIME USER MIGRATION
-# =========================
-
-@app.get("/admin/migrate-users")
-def migrate_users():
-    db = SessionLocal()
-
-    # Assign IDs to users where id is NULL
-    db.execute(text("""
-        UPDATE users
-        SET id = nextval('users_id_seq')
-        WHERE id IS NULL;
-    """))
-
-    db.commit()
-    db.close()
-
-    return {"status": "migration_done"}
-    
