@@ -1,4 +1,6 @@
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from telegram import Update
 
@@ -18,6 +20,15 @@ async def startup():
     print("✅ Telegram bot initialized")
 
 
+# ---------- Serve Web Dashboard ----------
+
+app.mount("/dashboard", StaticFiles(directory="dashboard"), name="dashboard")
+
+@app.get("/")
+def home():
+    return FileResponse("dashboard/index.html")
+
+
 # ---------- Telegram Webhook ----------
 
 @app.post("/webhook")
@@ -28,24 +39,17 @@ async def webhook(req: Request):
     return {"ok": True}
 
 
-# ---------- Android API (safe stub) ----------
+# ---------- Android API ----------
 
 class LoginRequest(BaseModel):
     telegram_id: int
-
 
 class ToolRequest(BaseModel):
     text: str
 
 
-@app.get("/")
-def home():
-    return {"status": "YouToolsPro API is running"}
-
-
 @app.post("/api/login")
 def api_login(req: LoginRequest):
-    # temporary stub until db_service is wired
     return {
         "telegram_id": req.telegram_id,
         "is_premium": False
