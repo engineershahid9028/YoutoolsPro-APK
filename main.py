@@ -7,6 +7,8 @@ from telegram import Update
 
 from bot import telegram_app
 from db import init_db
+from binance_verify import verify_usdt_payment
+from db_service import set_premium, log_payment
 
 
 # =========================
@@ -17,12 +19,12 @@ app = FastAPI()
 
 
 # =========================
-# ENABLE CORS (for React / Web / Mobile)
+# ENABLE CORS
 # =========================
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # Allow all frontends (React, Android, etc.)
+    allow_origins=["*"],   # React, Android, etc.
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -76,13 +78,17 @@ class ToolRequest(BaseModel):
     text: str
 
 
+class PaymentRequest(BaseModel):
+    telegram_id: int
+    txid: str
+
+
 # =========================
-# ANDROID / WEB API
+# API ROUTES
 # =========================
 
 @app.post("/api/login")
 def api_login(req: LoginRequest):
-    # You can later connect this to real DB login
     return {
         "telegram_id": req.telegram_id,
         "is_premium": False
@@ -102,15 +108,14 @@ def api_keyword(req: ToolRequest):
 @app.post("/api/seo")
 def api_seo(req: ToolRequest):
     return {"result": f"SEO result for: {req.text}"}
-    class PaymentRequest(BaseModel):
-    telegram_id: int
-    txid: str
 
+
+# =========================
+# PAYMENT API
+# =========================
 
 @app.post("/api/payment")
 def api_payment(req: PaymentRequest):
-    from binance_verify import verify_usdt_payment
-    from db_service import set_premium, log_payment
 
     if not verify_usdt_payment(req.txid):
         log_payment(req.telegram_id, req.txid, 5, "failed")
@@ -120,4 +125,3 @@ def api_payment(req: PaymentRequest):
     log_payment(req.telegram_id, req.txid, 5, "success")
 
     return {"status": "success"}
-
