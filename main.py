@@ -230,28 +230,34 @@ def api_payment(req: PaymentRequest):
 # ONE-TIME USER MIGRATION
 # =========================
 
+# =========================
+# ONE-TIME USER MIGRATION
+# =========================
+
 @app.get("/admin/migrate-users")
 def migrate_users():
     db = SessionLocal()
 
-    # Get users without internal ID
-    users = db.execute(
-        text("SELECT telegram_id FROM users WHERE id IS NULL")
-    ).fetchall()
+    # Create sequence if not exists
+    db.execute(text("""
+        DO $$
+        BEGIN
+            IF NOT EXISTS (
+                SELECT 1 FROM pg_class WHERE relname = 'users_id_seq'
+            ) THEN
+                CREATE SEQUENCE users_id_seq;
+            END IF;
+        END $$;
+    """))
 
-    counter = 1
-
-    for u in users:
-        db.execute(
-            text("UPDATE users SET id = :id WHERE telegram_id = :tg"),
-            {"id": counter, "tg": u.telegram_id}
-        )
-        counter += 1
+    # Assign IDs using sequence
+    db.execute(text("""
+        UPDATE users
+        SET id = nextval('users_id_seq')
+        WHERE id IS NULL;
+    """))
 
     db.commit()
     db.close()
 
-    return {
-        "status": "migration_done",
-        "users_updated": counter - 1
-    }
+    return {"status": "migration_done"}
