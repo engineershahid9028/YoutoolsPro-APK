@@ -4,7 +4,8 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from telegram import Update
-
+from sqlalchemy import text
+from db import SessionLocal
 from bot import telegram_app
 from db import init_db
 from binance_verify import verify_usdt_payment
@@ -234,23 +235,27 @@ def api_payment(req: PaymentRequest):
 # ONE-TIME USER MIGRATION
 # =========================
 
+@app.get("/admin/create-id-sequence")
+def create_id_sequence():
+    db = SessionLocal()
+
+    db.execute(text("""
+        CREATE SEQUENCE IF NOT EXISTS users_id_seq;
+    """))
+
+    db.commit()
+    db.close()
+
+    return {"status": "sequence_ready"}
+# =========================
+# ONE-TIME USER MIGRATION
+# =========================
+
 @app.get("/admin/migrate-users")
 def migrate_users():
     db = SessionLocal()
 
-    # Create sequence if not exists
-    db.execute(text("""
-        DO $$
-        BEGIN
-            IF NOT EXISTS (
-                SELECT 1 FROM pg_class WHERE relname = 'users_id_seq'
-            ) THEN
-                CREATE SEQUENCE users_id_seq;
-            END IF;
-        END $$;
-    """))
-
-    # Assign IDs using sequence
+    # Assign IDs to users where id is NULL
     db.execute(text("""
         UPDATE users
         SET id = nextval('users_id_seq')
@@ -261,3 +266,4 @@ def migrate_users():
     db.close()
 
     return {"status": "migration_done"}
+    
