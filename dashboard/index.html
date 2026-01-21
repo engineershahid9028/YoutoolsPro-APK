@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>YoutoolsPro Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+
+    <style>
+        body {
+            font-family: Arial;
+            background: #0f172a;
+            color: white;
+            text-align: center;
+            padding: 30px;
+        }
+
+        input {
+            padding: 12px;
+            width: 80%;
+            max-width: 400px;
+            border-radius: 6px;
+            border: none;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 12px 25px;
+            margin-top: 15px;
+            border-radius: 6px;
+            border: none;
+            font-size: 18px;
+            background: #2563eb;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #1d4ed8;
+        }
+
+        .card {
+            background: #020617;
+            padding: 25px;
+            border-radius: 10px;
+            max-width: 500px;
+            margin: auto;
+            box-shadow: 0 0 20px rgba(0,0,0,.4);
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>YoutoolsPro Dashboard</h1>
+
+    <div class="card">
+        <p>Enter YouTube URL</p>
+        <input id="url" placeholder="https://youtube.com/watch?v=..." />
+        <br>
+        <button onclick="start()">Start Tool</button>
+
+        <p id="result"></p>
+    </div>
+
+<script>
+function start(){
+    const url = document.getElementById("url").value;
+
+    fetch("/tools?url=" + encodeURIComponent(url))
+        .then(res => res.text())
+        .then(data => {
+            document.getElementById("result").innerText = data;
+        })
+        .catch(err => {
+            document.getElementById("result").innerText = "Error: " + err;
+        });
+}
+</script>
+
+</body>
+</html>
