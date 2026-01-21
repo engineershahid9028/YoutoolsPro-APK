@@ -8,24 +8,31 @@ from telegram import Update
 from bot import telegram_app
 from db import init_db
 from binance_verify import verify_usdt_payment
-from db_service import set_premium, log_payment
+
 from db_service import (
-    get_stats,
-    get_all_users,
+    get_or_create_user,
+    is_premium,
     set_premium,
     revoke_premium,
     ban_user,
     unban_user,
-    get_all_payments
+    log_payment,
+    get_stats,
+    get_all_users,
+    get_all_payments,
 )
 
+# =========================
+# CONFIG
+# =========================
+
+ADMIN_ID = 7575476523   # your admin telegram id
 
 # =========================
 # APP INIT
 # =========================
 
 app = FastAPI()
-
 
 # =========================
 # ENABLE CORS
@@ -39,7 +46,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
 # =========================
 # STARTUP
 # =========================
@@ -51,7 +57,6 @@ async def startup():
     print("✅ Database initialized")
     print("✅ Telegram bot initialized")
 
-
 # =========================
 # SERVE WEB DASHBOARD
 # =========================
@@ -61,7 +66,6 @@ app.mount("/dashboard", StaticFiles(directory="dashboard"), name="dashboard")
 @app.get("/")
 def home():
     return FileResponse("dashboard/index.html")
-
 
 # =========================
 # TELEGRAM WEBHOOK
@@ -74,7 +78,6 @@ async def webhook(req: Request):
     await telegram_app.process_update(update)
     return {"ok": True}
 
-
 # =========================
 # API MODELS
 # =========================
@@ -82,23 +85,20 @@ async def webhook(req: Request):
 class LoginRequest(BaseModel):
     telegram_id: int
 
-
 class ToolRequest(BaseModel):
     text: str
-
 
 class PaymentRequest(BaseModel):
     telegram_id: int
     txid: str
 
+class AdminAction(BaseModel):
+    admin_id: int
+    user_id: int
 
 # =========================
-# API ROUTES
+# AUTH API
 # =========================
-
-from db_service import get_or_create_user, is_premium
-
-ADMIN_ID = 7575476523   # your admin id
 
 @app.post("/api/login")
 def api_login(req: LoginRequest):
@@ -110,28 +110,32 @@ def api_login(req: LoginRequest):
         "is_admin": req.telegram_id == ADMIN_ID
     }
 
-
-
 @app.get("/api/status/{telegram_id}")
 def api_status(telegram_id: int):
-    return {"is_premium": False}
+    return {
+        "is_premium": is_premium(telegram_id),
+        "is_admin": telegram_id == ADMIN_ID
+    }
 
+# =========================
+# TOOL APIS
+# =========================
 
 @app.post("/api/keyword")
 def api_keyword(req: ToolRequest):
     return {"result": f"Keyword result for: {req.text}"}
 
-
 @app.post("/api/seo")
 def api_seo(req: ToolRequest):
     return {"result": f"SEO result for: {req.text}"}
 
-ADMIN_ID = 7575476523
+# =========================
+# ADMIN APIS
+# =========================
 
-
-@app.get("/api/admin/stats/{telegram_id}")
-def admin_stats(telegram_id: int):
-    if telegram_id != ADMIN_ID:
+@app.get("/api/admin/stats/{admin_id}")
+def admin_stats(admin_id: int):
+    if admin_id != ADMIN_ID:
         return {"error": "Unauthorized"}
 
     users, premium, wallets, total_requests = get_stats()
@@ -143,32 +147,37 @@ def admin_stats(telegram_id: int):
         "requests": total_requests
     }
 
-
-@app.get("/api/admin/users/{telegram_id}")
-def admin_users(telegram_id: int):
-    if telegram_id != ADMIN_ID:
+@app.get("/api/admin/users/{admin_id}")
+def admin_users(admin_id: int):
+    if admin_id != ADMIN_ID:
         return {"error": "Unauthorized"}
 
     users = get_all_users()
-    return [{"id": u.telegram_id, "premium": u.is_premium, "wallet": u.wallet} for u in users]
+    return [
+        {
+            "id": u.telegram_id,
+            "premium": u.is_premium,
+            "wallet": u.wallet,
+            "banned": u.is_banned
+        }
+        for u in users
+    ]
 
-
-@app.get("/api/admin/payments/{telegram_id}")
-def admin_payments(telegram_id: int):
-    if telegram_id != ADMIN_ID:
+@app.get("/api/admin/payments/{admin_id}")
+def admin_payments(admin_id: int):
+    if admin_id != ADMIN_ID:
         return {"error": "Unauthorized"}
 
     payments = get_all_payments()
     return [
-        {"user": p.user_id, "amount": p.amount, "status": p.status, "txid": p.txid}
+        {
+            "user": p.user_id,
+            "amount": p.amount,
+            "status": p.status,
+            "txid": p.txid
+        }
         for p in payments
     ]
-
-
-class AdminAction(BaseModel):
-    admin_id: int
-    user_id: int
-
 
 @app.post("/api/admin/grant")
 def admin_grant(req: AdminAction):
@@ -178,7 +187,6 @@ def admin_grant(req: AdminAction):
     set_premium(req.user_id)
     return {"status": "premium_granted"}
 
-
 @app.post("/api/admin/revoke")
 def admin_revoke(req: AdminAction):
     if req.admin_id != ADMIN_ID:
@@ -187,7 +195,6 @@ def admin_revoke(req: AdminAction):
     revoke_premium(req.user_id)
     return {"status": "premium_revoked"}
 
-
 @app.post("/api/admin/ban")
 def admin_ban(req: AdminAction):
     if req.admin_id != ADMIN_ID:
@@ -195,7 +202,6 @@ def admin_ban(req: AdminAction):
 
     ban_user(req.user_id)
     return {"status": "banned"}
-
 
 @app.post("/api/admin/unban")
 def admin_unban(req: AdminAction):
