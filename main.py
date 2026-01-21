@@ -102,3 +102,22 @@ def api_keyword(req: ToolRequest):
 @app.post("/api/seo")
 def api_seo(req: ToolRequest):
     return {"result": f"SEO result for: {req.text}"}
+    class PaymentRequest(BaseModel):
+    telegram_id: int
+    txid: str
+
+
+@app.post("/api/payment")
+def api_payment(req: PaymentRequest):
+    from binance_verify import verify_usdt_payment
+    from db_service import set_premium, log_payment
+
+    if not verify_usdt_payment(req.txid):
+        log_payment(req.telegram_id, req.txid, 5, "failed")
+        return {"status": "failed"}
+
+    set_premium(req.telegram_id)
+    log_payment(req.telegram_id, req.txid, 5, "success")
+
+    return {"status": "success"}
+
