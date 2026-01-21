@@ -300,3 +300,27 @@ def get_stats():
 
     db.close()
     return users, premium, wallets, total_requests
+    # =========================
+# BAN SYSTEM
+# =========================
+
+def ban_user(user_id):
+    db = SessionLocal()
+    user = db.query(User).filter(User.telegram_id == user_id).first()
+
+    if user:
+        user.is_banned = True
+        db.commit()
+
+    db.close()
+
+
+def unban_user(user_id):
+    db = SessionLocal()
+    user = db.query(User).filter(User.telegram_id == user_id).first()
+
+    if user:
+        user.is_banned = False
+        db.commit()
+
+    db.close()
