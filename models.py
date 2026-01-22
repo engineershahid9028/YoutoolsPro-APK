@@ -72,3 +72,11 @@ class ToolUsage(Base):
     user_id = Column(Integer, index=True)
     token = Column(String, unique=True, index=True)
     created_at = Column(DateTime, default=datetime.utcnow)
+
+    class DeviceToken(Base):
+    __tablename__ = "device_tokens"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, index=True)
+    token = Column(String, unique=True)
+
