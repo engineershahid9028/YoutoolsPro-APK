@@ -10,6 +10,9 @@ from bot import telegram_app
 from db import init_db
 from binance_verify import verify_usdt_payment
 from auth import router as auth_router
+from models import DeviceToken
+from db import SessionLocal
+
 
 from db_service import (
     get_or_create_user,
@@ -236,3 +239,24 @@ def api_payment(req: PaymentRequest):
 # =========================
 # ONE-TIME USER MIGRATION
 # =========================
+# =========================
+# PUSH NOTIFICATION DEVICE REGISTRATION
+# =========================
+
+class DeviceRegisterRequest(BaseModel):
+    user_id: int
+    token: str
+
+@app.post("/api/register-device")
+def register_device(req: DeviceRegisterRequest):
+    db = SessionLocal()
+
+    # Prevent duplicate token
+    exists = db.query(DeviceToken).filter(DeviceToken.token == req.token).first()
+    if not exists:
+        device = DeviceToken(user_id=req.user_id, token=req.token)
+        db.add(device)
+        db.commit()
+
+    db.close()
+    return {"status": "device_registered"}
