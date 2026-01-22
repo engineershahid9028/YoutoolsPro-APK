@@ -8,3 +8,6 @@ google-api-python-client
 sqlalchemy
 reportlab
 pydantic
+passlib[bcrypt]
+pyjwt
+
