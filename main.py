@@ -9,6 +9,7 @@ from db import SessionLocal
 from bot import telegram_app
 from db import init_db
 from binance_verify import verify_usdt_payment
+from auth import router as auth_router
 
 from db_service import (
     get_or_create_user,
@@ -117,6 +118,7 @@ def api_status(telegram_id: int):
         "is_premium": is_premium(telegram_id),
         "is_admin": telegram_id == ADMIN_ID
     }
+app.include_router(auth_router)
 
 # =========================
 # TOOL APIS
