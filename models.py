@@ -64,3 +64,11 @@ class ToolUsage(Base):
     tool = Column(String)
     query = Column(String)
     created_at = Column(DateTime, default=datetime.utcnow)
+    
+    class PasswordReset(Base):
+    __tablename__ = "password_resets"
+
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, index=True)
+    token = Column(String, unique=True, index=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
