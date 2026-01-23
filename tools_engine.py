@@ -1,6 +1,12 @@
 import os
+from flask import Blueprint, request, jsonify
 from openai import OpenAI
 from googleapiclient.discovery import build
+from security import token_required
+
+# ======================
+# CONFIG
+# ======================
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
@@ -8,6 +14,7 @@ YOUTUBE_API_KEY = os.getenv("YOUTUBE_API_KEY")
 client = OpenAI(api_key=OPENAI_API_KEY)
 youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 
+tool_bp = Blueprint("tools", __name__)
 
 # ======================
 # AI CORE
@@ -237,14 +244,14 @@ Make it clean, premium and professional.
 # ======================
 
 def rank_tracker(keyword):
-    request = youtube.search().list(
+    request_yt = youtube.search().list(
         q=keyword,
         part="snippet",
         maxResults=5,
         order="relevance",
         type="video"
     )
-    response = request.execute()
+    response = request_yt.execute()
 
     results = []
     rank = 1
@@ -317,14 +324,14 @@ Make it high CTR focused.
 # ======================
 
 def trending_videos(niche):
-    request = youtube.search().list(
+    request_yt = youtube.search().list(
         q=niche,
         part="snippet",
         maxResults=5,
         order="viewCount",
         type="video"
     )
-    response = request.execute()
+    response = request_yt.execute()
 
     results = []
     for item in response["items"]:
@@ -333,3 +340,37 @@ def trending_videos(niche):
         results.append(f"🔥 {title} — {channel}")
 
     return "📈 TRENDING VIDEOS REPORT\n━━━━━━━━━━━━━━━━━━━━━━\n\n" + "\n".join(results)
+
+
+# ======================
+# API ROUTES (JWT PROTECTED)
+# ======================
+
+@tool_bp.route("/api/tools/keyword", methods=["POST"])
+@token_required
+def keyword_api():
+    data = request.get_json()
+    topic = data.get("keyword") or data.get("topic")
+
+    if not topic:
+        return jsonify({"error": "Keyword is required"}), 400
+
+    return jsonify({
+        "success": True,
+        "result": keyword_generator(topic)
+    })
+
+
+@tool_bp.route("/api/tools/title", methods=["POST"])
+@token_required
+def title_api():
+    data = request.get_json()
+    topic = data.get("topic")
+
+    if not topic:
+        return jsonify({"error": "Topic is required"}), 400
+
+    return jsonify({
+        "success": True,
+        "result": title_generator(topic)
+    })
