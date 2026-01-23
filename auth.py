@@ -40,8 +40,17 @@ class LinkTelegramRequest(BaseModel):
 def register(req: RegisterRequest):
     db = SessionLocal()
 
-    if db.query(User).filter(User.email == req.email).first():
-        raise HTTPException(400, "Email already exists")
+    # ✅ FIX: ignore rows where email IS NULL (telegram users)
+    existing_user = (
+        db.query(User)
+        .filter(User.email == req.email)
+        .filter(User.email.isnot(None))
+        .first()
+    )
+
+    if existing_user:
+        db.close()
+        raise HTTPException(status_code=400, detail="Email already exists")
 
     user = User(
         email=req.email,
@@ -50,6 +59,7 @@ def register(req: RegisterRequest):
 
     db.add(user)
     db.commit()
+    db.refresh(user)
     db.close()
 
     return {"status": "registered"}
@@ -59,10 +69,21 @@ def register(req: RegisterRequest):
 def login(req: LoginRequest):
     db = SessionLocal()
 
-    user = db.query(User).filter(User.email == req.email).first()
+    # ✅ Extra safety: only allow email users here
+    user = (
+        db.query(User)
+        .filter(User.email == req.email)
+        .filter(User.email.isnot(None))
+        .first()
+    )
 
-    if not user or not verify_password(req.password, user.password_hash):
-        raise HTTPException(401, "Invalid credentials")
+    if not user or not user.password_hash:
+        db.close()
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+
+    if not verify_password(req.password, user.password_hash):
+        db.close()
+        raise HTTPException(status_code=401, detail="Invalid credentials")
 
     token = create_access_token(user.id)
 
@@ -79,10 +100,16 @@ def login(req: LoginRequest):
 def forgot_password(req: ForgotPasswordRequest):
     db = SessionLocal()
 
-    user = db.query(User).filter(User.email == req.email).first()
+    user = (
+        db.query(User)
+        .filter(User.email == req.email)
+        .filter(User.email.isnot(None))
+        .first()
+    )
 
     if not user:
-        return {"status": "ok"}  # Don't reveal users
+        db.close()
+        return {"status": "ok"}  # don't reveal users
 
     token = secrets.token_urlsafe(32)
 
@@ -103,9 +130,14 @@ def reset_password(req: ResetPasswordRequest):
 
     reset = db.query(PasswordReset).filter(PasswordReset.token == req.token).first()
     if not reset:
-        raise HTTPException(400, "Invalid token")
+        db.close()
+        raise HTTPException(status_code=400, detail="Invalid token")
 
     user = db.query(User).filter(User.id == reset.user_id).first()
+    if not user:
+        db.close()
+        raise HTTPException(status_code=400, detail="User not found")
+
     user.password_hash = hash_password(req.new_password)
 
     db.delete(reset)
@@ -119,12 +151,20 @@ def reset_password(req: ResetPasswordRequest):
 def link_telegram(req: LinkTelegramRequest):
     db = SessionLocal()
 
-    user = db.query(User).filter(User.email == req.email).first()
+    user = (
+        db.query(User)
+        .filter(User.email == req.email)
+        .filter(User.email.isnot(None))
+        .first()
+    )
+
     if not user:
-        raise HTTPException(400, "User not found")
+        db.close()
+        raise HTTPException(status_code=400, detail="User not found")
 
     if not verify_password(req.password, user.password_hash):
-        raise HTTPException(401, "Invalid password")
+        db.close()
+        raise HTTPException(status_code=401, detail="Invalid password")
 
     user.telegram_id = req.telegram_id
     db.commit()
