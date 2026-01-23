@@ -5,20 +5,13 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from telegram import Update
 from sqlalchemy import text
-from db import SessionLocal
+
+from db import SessionLocal, init_db
 from bot import telegram_app
-from db import init_db
 from binance_verify import verify_usdt_payment
 from auth import router as auth_router
 from models import DeviceToken
-from db import SessionLocal
-from tool_engine import tool_bp
-app.register_blueprint(tool_bp)
 from tools_engine import router as tools_router
-app.include_router(tools_router)
-
-
-
 
 from db_service import (
     get_or_create_user,
@@ -37,7 +30,7 @@ from db_service import (
 # CONFIG
 # =========================
 
-ADMIN_ID = 7575476523   # your admin telegram id
+ADMIN_ID = 7575476523
 
 # =========================
 # APP INIT
@@ -51,11 +44,20 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],   # React, Android, etc.
+    allow_origins=[
+        "https://youtoolspro-dashboard-production.up.railway.app"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# =========================
+# REGISTER ROUTERS
+# =========================
+
+app.include_router(auth_router)
+app.include_router(tools_router)
 
 # =========================
 # STARTUP
@@ -96,9 +98,6 @@ async def webhook(req: Request):
 class LoginRequest(BaseModel):
     telegram_id: int
 
-class ToolRequest(BaseModel):
-    text: str
-
 class PaymentRequest(BaseModel):
     telegram_id: int
     txid: str
@@ -127,19 +126,6 @@ def api_status(telegram_id: int):
         "is_premium": is_premium(telegram_id),
         "is_admin": telegram_id == ADMIN_ID
     }
-app.include_router(auth_router)
-
-# =========================
-# TOOL APIS
-# =========================
-
-@app.post("/api/keyword")
-def api_keyword(req: ToolRequest):
-    return {"result": f"Keyword result for: {req.text}"}
-
-@app.post("/api/seo")
-def api_seo(req: ToolRequest):
-    return {"result": f"SEO result for: {req.text}"}
 
 # =========================
 # ADMIN APIS
@@ -151,7 +137,6 @@ def admin_stats(admin_id: int):
         return {"error": "Unauthorized"}
 
     users, premium, wallets, total_requests = get_stats()
-
     return {
         "users": users,
         "premium": premium,
@@ -181,21 +166,12 @@ def admin_payments(admin_id: int):
         return {"error": "Unauthorized"}
 
     payments = get_all_payments()
-    return [
-        {
-            "user": p.user_id,
-            "amount": p.amount,
-            "status": p.status,
-            "txid": p.txid
-        }
-        for p in payments
-    ]
+    return payments
 
 @app.post("/api/admin/grant")
 def admin_grant(req: AdminAction):
     if req.admin_id != ADMIN_ID:
         return {"error": "Unauthorized"}
-
     set_premium(req.user_id)
     return {"status": "premium_granted"}
 
@@ -203,7 +179,6 @@ def admin_grant(req: AdminAction):
 def admin_revoke(req: AdminAction):
     if req.admin_id != ADMIN_ID:
         return {"error": "Unauthorized"}
-
     revoke_premium(req.user_id)
     return {"status": "premium_revoked"}
 
@@ -211,7 +186,6 @@ def admin_revoke(req: AdminAction):
 def admin_ban(req: AdminAction):
     if req.admin_id != ADMIN_ID:
         return {"error": "Unauthorized"}
-
     ban_user(req.user_id)
     return {"status": "banned"}
 
@@ -219,7 +193,6 @@ def admin_ban(req: AdminAction):
 def admin_unban(req: AdminAction):
     if req.admin_id != ADMIN_ID:
         return {"error": "Unauthorized"}
-
     unban_user(req.user_id)
     return {"status": "unbanned"}
 
@@ -229,24 +202,16 @@ def admin_unban(req: AdminAction):
 
 @app.post("/api/payment")
 def api_payment(req: PaymentRequest):
-
     if not verify_usdt_payment(req.txid):
         log_payment(req.telegram_id, req.txid, 5, "failed")
         return {"status": "failed"}
 
     set_premium(req.telegram_id)
     log_payment(req.telegram_id, req.txid, 5, "success")
-
     return {"status": "success"}
-# =========================
-# ONE-TIME USER MIGRATION
-# =========================
 
 # =========================
-# ONE-TIME USER MIGRATION
-# =========================
-# =========================
-# PUSH NOTIFICATION DEVICE REGISTRATION
+# DEVICE REGISTRATION
 # =========================
 
 class DeviceRegisterRequest(BaseModel):
@@ -256,13 +221,10 @@ class DeviceRegisterRequest(BaseModel):
 @app.post("/api/register-device")
 def register_device(req: DeviceRegisterRequest):
     db = SessionLocal()
-
-    # Prevent duplicate token
     exists = db.query(DeviceToken).filter(DeviceToken.token == req.token).first()
     if not exists:
         device = DeviceToken(user_id=req.user_id, token=req.token)
         db.add(device)
         db.commit()
-
     db.close()
     return {"status": "device_registered"}
