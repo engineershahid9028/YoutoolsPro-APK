@@ -1,8 +1,8 @@
 import os
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from openai import OpenAI
 from googleapiclient.discovery import build
-from security import get_current_user  # JWT dependency
+from db_service import is_premium
 
 # ======================
 # CONFIG
@@ -44,35 +44,16 @@ Topic: {topic}
 """
     return ai_generate(prompt)
 
-def title_generator(topic):
-    return ai_generate(f"Generate viral YouTube titles for: {topic}")
-
 # ======================
-# API ROUTES (JWT PROTECTED)
+# API ROUTES
 # ======================
 
 @router.post("/keyword")
-def keyword_tool(
-    keyword: str,
-    user=Depends(get_current_user)
-):
-    if not keyword:
-        raise HTTPException(status_code=400, detail="Keyword required")
+def keyword_tool(telegram_id: int, keyword: str):
+    if not is_premium(telegram_id):
+        raise HTTPException(status_code=403, detail="Premium required")
 
     return {
         "success": True,
         "result": keyword_generator(keyword)
-    }
-
-@router.post("/title")
-def title_tool(
-    topic: str,
-    user=Depends(get_current_user)
-):
-    if not topic:
-        raise HTTPException(status_code=400, detail="Topic required")
-
-    return {
-        "success": True,
-        "result": title_generator(topic)
     }
