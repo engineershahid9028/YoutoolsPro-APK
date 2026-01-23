@@ -122,6 +122,16 @@ def api_status(telegram_id: int):
         "is_admin": telegram_id == ADMIN_ID
     }
 app.include_router(auth_router)
+from db_service import create_ticket
+
+@app.post("/api/support")
+def api_support(req: SupportRequest):
+    ticket = create_ticket(req.telegram_id, req.message)
+
+    return {
+        "status": "success",
+        "ticket_id": ticket.id
+    }
 
 # =========================
 # TOOL APIS
