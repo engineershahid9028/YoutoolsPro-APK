@@ -39,3 +39,12 @@ app.include_router(tools_router)
 async def startup():
     init_db()
     await telegram_app.initialize()
+    
+    
+    @app.post("/api/promo")
+def apply_promo(req: PromoRequest):
+    if req.code != "FREE100":
+        raise HTTPException(status_code=400, detail="Invalid promo code")
+
+    set_premium(req.telegram_id)
+    return {"status": "success", "message": "Premium activated"}
