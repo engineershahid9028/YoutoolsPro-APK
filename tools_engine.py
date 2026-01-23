@@ -1,5 +1,6 @@
 import os
 from fastapi import APIRouter, HTTPException
+from pydantic import BaseModel
 from openai import OpenAI
 from googleapiclient.discovery import build
 from db_service import is_premium
@@ -17,6 +18,14 @@ youtube = build("youtube", "v3", developerKey=YOUTUBE_API_KEY)
 router = APIRouter(prefix="/api/tools", tags=["Tools"])
 
 # ======================
+# REQUEST MODELS
+# ======================
+
+class KeywordRequest(BaseModel):
+    telegram_id: int
+    keyword: str
+
+# ======================
 # AI CORE
 # ======================
 
@@ -29,18 +38,33 @@ def ai_generate(prompt: str) -> str:
     return response.choices[0].message.content.strip()
 
 # ======================
-# TOOL LOGIC
+# KEYWORD GENERATOR
 # ======================
 
-def keyword_generator(topic):
+def keyword_generator(topic: str) -> str:
     prompt = f"""
 Generate a premium SEO keyword report for YouTube.
 
 Topic: {topic}
 
-🔑 HIGH-RANKING KEYWORDS
-🎯 LONG-TAIL KEYWORDS
-🚀 SEO STRATEGY
+Format like this:
+
+🔑 YOUTUBE KEYWORD RESEARCH REPORT
+━━━━━━━━━━━━━━━━━━━━━━
+
+📌 Topic:
+{topic}
+
+🔥 HIGH-RANKING KEYWORDS
+List 20 keywords in bullet format
+
+🎯 BEST LONG-TAIL KEYWORDS
+List 10 long-tail keywords
+
+🚀 RANKING STRATEGY
+Give 5 SEO tips to rank faster
+
+Make it clean, professional and premium looking.
 """
     return ai_generate(prompt)
 
@@ -49,11 +73,11 @@ Topic: {topic}
 # ======================
 
 @router.post("/keyword")
-def keyword_tool(telegram_id: int, keyword: str):
-    if not is_premium(telegram_id):
+def keyword_tool(req: KeywordRequest):
+    if not is_premium(req.telegram_id):
         raise HTTPException(status_code=403, detail="Premium required")
 
     return {
         "success": True,
-        "result": keyword_generator(keyword)
+        "result": keyword_generator(req.keyword)
     }
