@@ -1,29 +1,54 @@
-from fastapi import FastAPI, Request
-from fastapi.responses import HTMLResponse
-from fastapi.staticfiles import StaticFiles
+from fastapi import FastAPI, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from telegram import Update
+
 from bot import telegram_app
 from db import init_db
+from auth import router as auth_router
+from tools_engine import router as tools_router
+from db_service import set_premium
+
+from pydantic import BaseModel
+
+# =========================
+# APP INIT
+# =========================
 
 app = FastAPI(title="YouToolsPro Backend")
 
-# Serve frontend
-app.mount("/web", StaticFiles(directory="web"), name="web")
+# =========================
+# MIDDLEWARE
+# =========================
 
-@app.get("/", response_class=HTMLResponse)
-def home():
-    with open("web/index.html", "r", encoding="utf-8") as f:
-        return f.read()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Startup
+# =========================
+# ROUTERS
+# =========================
+
+app.include_router(auth_router)
+app.include_router(tools_router)
+
+# =========================
+# STARTUP
+# =========================
+
 @app.on_event("startup")
 async def startup():
     init_db()
     await telegram_app.initialize()
+    print("✅ Database initialized")
     print("✅ Telegram bot initialized")
-    print("✅ YouToolsPro API is running")
 
-# Telegram webhook
+# =========================
+# TELEGRAM WEBHOOK
+# =========================
+
 @app.post("/webhook")
 async def webhook(req: Request):
     data = await req.json()
@@ -31,15 +56,26 @@ async def webhook(req: Request):
     await telegram_app.process_update(update)
     return {"ok": True}
 
-# API routes
-@app.get("/status")
-def status():
-    return {"service": "online", "bot": "online"}
+# =========================
+# PROMO CODE
+# =========================
 
-@app.get("/tools")
-def tools():
-    return [
-        {"name": "Video Downloader", "status": "online"},
-        {"name": "Image Converter", "status": "online"},
-        {"name": "Audio Extractor", "status": "online"}
-    ]
+class PromoRequest(BaseModel):
+    telegram_id: int
+    code: str
+
+@app.post("/api/promo")
+def apply_promo(req: PromoRequest):
+    if req.code != "FREE100":
+        raise HTTPException(status_code=400, detail="Invalid promo code")
+
+    set_premium(req.telegram_id)
+    return {"status": "success", "message": "Premium activated"}
+
+# =========================
+# HEALTH
+# =========================
+
+@app.get("/")
+def home():
+    return {"status": "YouToolsPro API running"}
