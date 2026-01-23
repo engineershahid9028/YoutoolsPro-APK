@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from openai import OpenAI
 from googleapiclient.discovery import build
 from db_service import is_premium
+from db_service import increment_tool_usage, get_today_usage
+
 
 # ======================
 # CONFIG
@@ -71,11 +73,20 @@ Make it clean, professional and premium looking.
 # ======================
 # API ROUTES
 # ======================
-
 @router.post("/keyword")
 def keyword_tool(req: KeywordRequest):
     if not is_premium(req.telegram_id):
         raise HTTPException(status_code=403, detail="Premium required")
+
+    used = get_today_usage(req.telegram_id)
+
+    if used >= 10:
+        raise HTTPException(
+            status_code=429,
+            detail="Daily tool limit reached"
+        )
+
+    increment_tool_usage(req.telegram_id)
 
     return {
         "success": True,
