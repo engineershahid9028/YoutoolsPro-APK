@@ -12,6 +12,9 @@ from binance_verify import verify_usdt_payment
 from auth import router as auth_router
 from models import DeviceToken
 from db import SessionLocal
+from tool_engine import tool_bp
+app.register_blueprint(tool_bp)
+
 
 
 from db_service import (
