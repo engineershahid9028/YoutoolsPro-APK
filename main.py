@@ -12,6 +12,8 @@ from binance_verify import verify_usdt_payment
 from auth import router as auth_router
 from models import DeviceToken
 from tools_engine import router as tools_router
+app.include_router(tools_router)
+
 
 from db_service import (
     get_or_create_user,
