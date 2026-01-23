@@ -6,12 +6,22 @@ from db import Base
 class User(Base):
     __tablename__ = "users"
 
-    telegram_id = Column(BigInteger, primary_key=True, index=True)
+    id = Column(Integer, primary_key=True, index=True)
+
+    # Telegram users
+    telegram_id = Column(BigInteger, unique=True, nullable=True, index=True)
+
+    # Email users
+    email = Column(String, unique=True, nullable=True, index=True)
+    password_hash = Column(String, nullable=True)
+
+    # Business logic
     is_premium = Column(Boolean, default=False, index=True)
     premium_expiry = Column(DateTime, nullable=True)
     wallet = Column(Float, default=0.0)
     referrer_id = Column(BigInteger, nullable=True)
     is_banned = Column(Boolean, default=False, index=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)
 
 
