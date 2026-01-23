@@ -1,14 +1,15 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
 
-# imports that do NOT use `app`
 from tools_engine import router as tools_router
 from auth import router as auth_router
 from bot import telegram_app
 from db import init_db
+from db_service import set_premium
 
 # =========================
-# APP INIT (THIS MUST COME FIRST)
+# APP INIT
 # =========================
 
 app = FastAPI()
@@ -25,7 +26,7 @@ app.add_middleware(
 )
 
 # =========================
-# ROUTERS (AFTER app EXISTS)
+# ROUTERS
 # =========================
 
 app.include_router(auth_router)
@@ -39,9 +40,16 @@ app.include_router(tools_router)
 async def startup():
     init_db()
     await telegram_app.initialize()
-    
-    
-    @app.post("/api/promo")
+
+# =========================
+# PROMO API
+# =========================
+
+class PromoRequest(BaseModel):
+    telegram_id: int
+    code: str
+
+@app.post("/api/promo")
 def apply_promo(req: PromoRequest):
     if req.code != "FREE100":
         raise HTTPException(status_code=400, detail="Invalid promo code")
