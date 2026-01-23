@@ -14,6 +14,9 @@ from models import DeviceToken
 from db import SessionLocal
 from tool_engine import tool_bp
 app.register_blueprint(tool_bp)
+from tools_engine import router as tools_router
+app.include_router(tools_router)
+
 
 
 
