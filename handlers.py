@@ -118,7 +118,9 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
         if action == "admin_stats":
             users, premium, wallets, total = get_stats()
-            await query.message.reply_text(f"Users: {users}\nPremium: {premium}\nWallets: {wallets}\nRequests: {total}")
+            await query.message.reply_text(
+                f"Users: {users}\nPremium: {premium}\nWallets: {wallets}\nRequests: {total}"
+            )
             return
 
         if action == "admin_users":
@@ -137,7 +139,7 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text("Send USER ID")
         return
 
-    if user_id != ADMIN_ID and action not in FREE_TOOLS and not is_premium(user_id) and action not in ["premium","promo","support"]:
+    if user_id != ADMIN_ID and action not in FREE_TOOLS and not is_premium(user_id) and action not in ["premium", "promo", "support"]:
         await query.message.reply_text("🔒 Premium required")
         return
 
@@ -196,12 +198,17 @@ async def handle_user_input(update: Update, context: ContextTypes.DEFAULT_TYPE):
     }
 
     result = engines[tool](text)
+
+    # 🔒 PROTECT AGAINST EMPTY RESULT
+    if not result or not result.strip():
+        result = "⚠️ Tool failed to generate a result. Please try again."
+
     log_tool_usage(user_id, tool, text)
 
     pdf = generate_pdf(user_id, tool, result)
 
     await update.message.reply_text(result)
-    await context.bot.send_document(user_id, open(pdf,"rb"))
+    await context.bot.send_document(user_id, open(pdf, "rb"))
 
     context.user_data["tool"] = None
 
